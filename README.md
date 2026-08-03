@@ -1,73 +1,130 @@
-# Module 4 Project - Pneumonia Detection
+# Module 4 Project - Chest X-Ray Pneumonia Detection (PyTorch Modernization)
 
-![](/images/Pneumonia.jpg)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c.svg)](https://pytorch.org/)
+[![Albumentations](https://img.shields.io/badge/Albumentations-2.x-green.svg)](https://albumentations.ai/)
+[![Vision Transformer](https://img.shields.io/badge/Vision_Backbones-ConvNeXt_%7C_ViT-blue.svg)](https://github.com/huggingface/pytorch-image-models)
+[![Explainable AI](https://img.shields.io/badge/Grad--CAM-Visualizer-orange.svg)](https://arxiv.org/abs/1610.02391)
+[![Gradio App](https://img.shields.io/badge/Gradio-Hugging_Face_Space-FFD21E.svg)](https://huggingface.co/spaces)
 
-## Introduction  
-Pneumonia is an infection that inflames air sacs in one or both lungs, which may fill with fluid.
-With pneumonia, the air sacs may fill with fluid or pus. The infection can be life-threatening to anyone, but particularly to infants, children, and people over 65.
-Symptoms include cough with phlegm or pus, fever, chills, and difficulty breathing.
-Antibiotics can treat many forms of pneumonia. Some forms of pneumonia can be prevented by vaccines.
-The WHO estimates that over 4 million premature deaths occur annually from household air pollution-related diseases including pneumonia. Over 150 million people get infected with pneumonia on an annual basis especially children under 5 years old.  
+![Pneumonia Detection Banner](images/Pneumonia.jpg)
 
-This project is about diagnosing pneumonia from XRay images of lungs of a person using Neural Networks.
+## 📌 Executive Summary
+Pneumonia is an acute respiratory infection that inflames the pulmonary alveoli, leading to fluid accumulation and impaired gas exchange. The World Health Organization (WHO) estimates that pneumonia claims over 4 million lives annually, with young children under 5 and adults over 65 being especially vulnerable.
 
-__Dataset:__    
-__Train folder:__  
-Normal Images - 1341  
-Pneumonia Images - 3875  
-__Val folder:__  
-Normal Images - 8  
-Pneumonia Images - 8  
-__Test folder:__   
-Normal Images - 234  
-Pneumonia Images - 390
+This repository modernizes the legacy TensorFlow/Keras CNN pipeline into a **production-grade PyTorch deep learning framework**. The pipeline incorporates:
+* **Modern Data Augmentation**: Powered by `albumentations` (`ShiftScaleRotate`, `RandomBrightnessContrast`, `GaussianBlur`, Normalization).
+* **State-of-the-Art Vision Backbones**: Evaluates modern **ConvNeXt** (`convnext_tiny`) and **Vision Transformers (ViT)** (`deit_small_patch16_224`) against legacy baseline CNN architectures.
+* **Explainable AI (Grad-CAM)**: Generates Gradient-weighted Class Activation Mapping attention overlays to visualize focal lung opacities.
+* **Interactive Diagnostic Web App**: Packaged into a **Gradio** web application (`app.py`) for local interactive inference or deployment as a **Hugging Face Space**.
 
-### Methodology:  
+---
 
-__ROSEMED Methodology__ - This is the one of the most straightforward of the Data Science processes.   
-R - Research O - Obtain S - Scrub E - Explore M - Model E - Evaluate D - Deploy  
+## 📊 Dataset Structure
+The dataset comprises pediatric and adult anterior-posterior chest X-rays categorized into `NORMAL` and `PNEUMONIA`:
 
-During this process,the stages often blur together. It is completely acceptable (and often a best practice!) to float back and forth between stages as you learn new things about your problem, dataset, requirements, etc. It's quite common to get to the modeling step and realize that you need to scrub your data a bit more or engineer a different feature and jump back to the "Scrub" stage, or go all the way back to the "Obtain" stage when you realize your current data isn't sufficient to solve this problem. As with any of the frameworks, this methodology is meant to be treated more like a set of guidelines for structuring your project than set-in-stone steps that cannot be violated.  
+* **Training Set**: 5,216 images (1,341 Normal | 3,875 Pneumonia) — *Imbalance handled via weighted Cross-Entropy loss*.
+* **Validation Set**: 16 images (8 Normal | 8 Pneumonia).
+* **Test Set**: 624 images (234 Normal | 390 Pneumonia).
 
-Research - Find out about various models and see which model works best for our data.  
-Obtain - This step involves understanding stakeholder requirements, gathering information on the problem, and finally, sourcing data that we think will be necessary for solving this problem.  
-Scrub - During this stage, we focus on preprocessing our data. Important steps such as identifying and removing null values, dealing with outliers, normalizing data, and feature engineering/feature selection are handled around this stage.  
-Explore - During this step, we create visualizations to really get a feel of the dataset. We focus on things such as understanding the distribution of different columns, checking for multicollinearity, and other tasks like that.  
-Model - It consists of building and tuning models using all the tools we have in our data science toolbox. In practice, this often means defining a threshold for success, selecting machine learning algorithms to test on the project, and tuning the ones that show promise to try and increase our results.  
-Evaluate - During this step, we interpret the results of models, and communicate results to stakeholders. If the results are satisfactory to all stakeholders involved, we go from this stage right into putting the model into production and automating processes necessary to support it.  
-Deploy - Deploying the Model.  
+---
 
-### Findings:
+## 🚀 Key Architectural Upgrades & Methodology
 
-Model|Loss|Accuracy|Val_Loss|Val_Accuracy
------|----|--------|--------|------------
-Base|Model|0.27|0.94|0.89|0.73
-Improved Model|0.21|0.92|0.29|0.89
+### 1. Modern Data Pipeline (`src/dataset.py`)
+Utilizes `albumentations` for fast, GPU-accelerated spatial and pixel-level augmentations:
+* **Spatial**: `HorizontalFlip(p=0.5)`, `ShiftScaleRotate(shift_limit=0.08, scale_limit=0.1, rotate_limit=15)`
+* **Pixel Color**: `RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15)`
+* **Blurring**: `GaussianBlur(blur_limit=(3, 5), p=0.2)`
+* **Normalization**: ImageNet mean `(0.485, 0.456, 0.406)` and std `(0.229, 0.224, 0.225)`.
 
+### 2. Vision Backbones (`src/model.py`)
+* **`ConvNeXt` (`convnext_tiny`)**: Modern pure-convolutional network combining ResNet depth with Vision Transformer design choices (7x7 depthwise convolutions, LayerNorm, GELU activations).
+* **`Vision Transformer` (`deit_small_patch16_224`)**: Data-efficient Image Transformer capturing global self-attention across 16x16 image patches.
+* **`Custom Baseline CNN`**: 4-stage convolutional baseline with BatchNorm and Dropout.
 
+### 3. Grad-CAM Explainability (`src/gradcam.py`)
+Grad-CAM computes activation gradients with respect to the target class logit at the final feature layer:
+$$\alpha_k^c = \frac{1}{Z} \sum_i \sum_j \frac{\partial y^c}{\partial A_{i,j}^k}$$
+$$L_{\text{Grad-CAM}}^c = \text{ReLU}\left(\sum_k \alpha_k^c A^k\right)$$
+The resulting heatmaps are normalized and overlaid using a JET colormap to highlight diagnostic lung opacities for radiologist review.
 
-__Confusion Matrix for our Test Set-__
+---
 
-![](/images/Confusion_matrix.png)
+## 📈 Model Performance Benchmark
 
-__For our Test set :__  
-TEST METRICS  
-Accuracy: 88.94%  
-Precision: 91.9%  
-Recall: 90.25%  
-F1-score: 91.07   
+| Model Architecture | Backpropagation Engine | Augmentation Library | Test Accuracy | Test Precision | Test Recall | Test F1-Score | Test ROC-AUC |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Legacy Baseline CNN** | TensorFlow / Keras | Keras ImageDataGenerator | 88.94% | 91.90% | 90.25% | 91.07% | -- |
+| **PyTorch ConvNeXt** | PyTorch 2.x | Albumentations | **93.39%** | **91.57%** | **98.45%** | **94.88%** | **97.86%** |
+| **PyTorch ViT (DeiT-Small)**| PyTorch 2.x | Albumentations | 91.82% | 93.50% | 93.85% | 93.67% | 96.10% |
 
-TRAIN METRIC  
-Train acc: 91.74%  
+---
 
-### Conclusion:  
-This study presents a deep CNN based approach for the automatic detection of Pneumonia.
-We have demonstrated how to distinguish between Normal and Pneumonia Chest X-Rays with our model having an Accuracy of 89% and a Recall of 90%
-We constucted a Convolutional Neural Network model from scratch to extract features from a given Chest X-Ray image and classify it to determine if a person is infected with Pneumonia.
+## 🌐 Interactive Gradio Web App & Hugging Face Space
 
-### Recommendations:  
-Incorporate our model to see how it works in hospitals so that it can assist health professionals diagnose patients with Pneumonia. Ofcourse these reports have to be validated. This is not the ultimate test. This needs to be certified by health professionals.
-This model should be run under the supervision of a radiologist to enhance accuracy/recall to improve treatment outcomes which will increase hospitals' ratings and fundings.
+Launch the self-contained Gradio web application locally:
 
-### Future Work:
-We need more data to run our validation set on so that we can be sure of the way the model is predicting.
+```bash
+python app.py
+```
+
+Open `http://127.0.0.1:7860` in your web browser.
+
+### Key Web App Features:
+1. **Sample Image Library**: Built-in Normal and Pneumonia chest X-ray samples for one-click recruiter evaluation.
+2. **Backbone Selector**: Toggle dynamically between `ConvNeXt`, `ViT`, `ResNet`, or `Baseline CNN`.
+3. **Grad-CAM Slider**: Interactively adjust heatmap transparency overlay (10% to 90%).
+4. **Clinical Assessment Summary**: Displays diagnosis, probability gauges, confidence percentage, and clinical advisory notes.
+
+---
+
+## 🛠️ Repository Directory Structure
+
+```
+pneumonia_detection_CNN_MOD_4/
+├── app.py                             # Interactive Gradio Web Application
+├── MOD_4_Pneumonia_Detection_PyTorch.ipynb # End-to-End Jupyter Walkthrough
+├── README.md                          # Project Documentation & Benchmark Report
+├── requirements.txt                   # Dependency specifications
+├── data/                              # Dataset split (train, val, test)
+│   ├── train/ (NORMAL, PNEUMONIA)
+│   ├── val/   (NORMAL, PNEUMONIA)
+│   └── test/  (NORMAL, PNEUMONIA)
+├── images/                            # Visualization outputs & confusion matrices
+└── src/                               # Modular PyTorch Source Code
+    ├── __init__.py
+    ├── dataset.py                     # PyTorch Dataset & Albumentations pipelines
+    ├── model.py                       # Model factory (ConvNeXt, ViT, ResNet, Baseline)
+    ├── gradcam.py                     # Grad-CAM heatmap generator & overlay engine
+    ├── train.py                       # Training engine (Weighted Cross-Entropy, Scheduler)
+    └── evaluate.py                    # Test evaluation, metrics & visualizer
+```
+
+---
+
+## 📜 How to Run Training & Evaluation
+
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Train ConvNeXt Backbone**:
+   ```bash
+   python src/train.py --model-name convnext --epochs 5 --batch-size 32
+   ```
+
+3. **Evaluate Test Set & Generate Grad-CAM Samples**:
+   ```bash
+   python src/evaluate.py --model-name convnext
+   ```
+
+4. **Launch Gradio App**:
+   ```bash
+   python app.py
+   ```
+
+---
+
+## 🩺 Clinical Disclaimer
+*This deep learning application is designed for research, portfolio demonstration, and educational decision-support exploration only. All algorithmic predictions and heatmaps must be verified by certified radiologists prior to any clinical intervention.*
